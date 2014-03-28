@@ -10,48 +10,51 @@ const (
   ItemWhitespace
 )
 
+func lexStart(l Lexer, ctx interface {}) LexFn {
+  b := l.Peek()
+  switch {
+  case b == EOF:
+    l.Emit(ItemEOF)
+  case b >= 0x31 && b <= 0x39:
+    return lexNumber
+  case b == '+':
+    return lexOperator
+  case b == ' ' || b == 0x0a || b == 0x13 || b == 0x09:
+    return lexWhitespace
+  default:
+    l.EmitErrorf("Unexpected char: %q", b)
+  }
+  return nil
+}
+
+func lexWhitespace(l Lexer, ctx interface {}) LexFn {
+  if l.AcceptRun(" \t\r\n") {
+    l.Emit(ItemWhitespace)
+    return lexStart
+  }
+ return l.EmitErrorf("Expected whitespace")
+}
+
+func lexOperator(l Lexer, ctx interface {}) LexFn {
+  if l.Accept("+") {
+    l.Emit(ItemOperator)
+    return lexStart
+  }
+
+  return l.EmitErrorf("Expected operator")
+}
+
+func lexNumber(l Lexer, ctx interface {}) LexFn {
+  if l.AcceptRun("0123456789") {
+    l.Emit(ItemNumber)
+    return lexStart
+  }
+  return l.EmitErrorf("Expected number")
+}
+
 func TestLex(t *testing.T) {
   l := NewStringLexer("1 + 2")
-  l.SetLexFn("__START__", func(l Lexer, ctx interface {}) LexFn {
-    b := l.Peek()
-    switch {
-    case b == EOF:
-      l.Emit(ItemEOF)
-    case b >= 0x31 && b <= 0x39:
-      return l.MustGetLexFn("Number")
-    case b == '+':
-      return l.MustGetLexFn("Operator")
-    case b == ' ' || b == 0x0a || b == 0x13 || b == 0x09:
-      return l.MustGetLexFn("Whitespace")
-    default:
-      l.EmitErrorf("Unexpected char: %q", b)
-    }
-    return nil
-  })
-  l.SetLexFn("Whitespace", func(l Lexer, ctx interface {}) LexFn {
-    if l.AcceptRun(" \t\r\n") {
-      l.Emit(ItemWhitespace)
-      return l.MustGetLexFn("__START__")
-    }
-    return l.EmitErrorf("Expected whitespace")
-  })
-  l.SetLexFn("Operator", func(l Lexer, ctx interface {}) LexFn {
-    if l.Accept("+") {
-      l.Emit(ItemOperator)
-      return l.MustGetLexFn("__START__")
-    }
-
-    return l.EmitErrorf("Expected operator")
-  })
-  l.SetLexFn("Number", func(l Lexer, ctx interface {}) LexFn {
-    if l.AcceptRun("0123456789") {
-      l.Emit(ItemNumber)
-      return l.MustGetLexFn("__START__")
-    }
-    return l.EmitErrorf("Expected number")
-  })
-
-  go l.Run(l)
+  go l.Run(l, lexStart)
 
   expectedItems := []LexItem {
     NewLexItem( ItemNumber, 0, "1" ),

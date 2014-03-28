@@ -18,7 +18,7 @@ const EOF = -1
 
 // Lexer defines the interface for Lexers
 type Lexer interface {
-  Run(interface {})
+  Run(interface {}, LexFn)
   Next() rune
   Peek() rune
   Backup()
@@ -28,7 +28,4 @@ type Lexer interface {
   EmitErrorf(string, ...interface {}) LexFn
   Items() <-chan LexItem
   NextItem() LexItem
-  SetLexFn(string, LexFn)
-  GetLexFn(string) (LexFn, error)
-  MustGetLexFn(string) LexFn
 }

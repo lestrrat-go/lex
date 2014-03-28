@@ -14,7 +14,6 @@ type StringLexer struct {
   start int
   pos int
   width int
-  lexfns map[string]LexFn
   items chan LexItem
 }
 
@@ -27,7 +26,6 @@ func NewStringLexer(input string) *StringLexer {
     0,
     0,
     0,
-    make(map[string]LexFn),
     make(chan LexItem, 1),
   }
 }
@@ -87,31 +85,6 @@ func (l *StringLexer) EmitErrorf(format string, args ...interface {}) LexFn {
   return nil
 }
 
-// SetLexFn associates `name` with the given LexFn
-func (l *StringLexer) SetLexFn(name string, fn LexFn) {
-  l.lexfns[name] = fn
-}
-
-// GetLexFn returns the LexFn associated with `name`
-func (l *StringLexer) GetLexFn(name string) (LexFn, error) {
-  fn, ok := l.lexfns[name]
-  if ! ok {
-    return nil, fmt.Errorf("error: no such lex function '%s' registered", name)
-  }
-  return fn, nil
-}
-
-// MustGetLexFn returns the LexFn, or otherwise emits an ItemError and
-// stops the lexing
-func (l *StringLexer) MustGetLexFn(name string) LexFn {
-  fn, err := l.GetLexFn(name)
-  if err != nil {
-    l.EmitErrorf("error: %s", err)
-    return nil
-  }
-  return fn
-}
-
 // Grab creates a new LexItem of type `t`. The value in the item is created
 // from the position of the last read item to current cursor position
 func (l *StringLexer) Grab(t LexItemType) LexItem {
@@ -169,15 +142,15 @@ func (l *StringLexer) NextItem() LexItem {
 // Run starts the lexing. You should be calling this method as a goroutine:
 //
 //    lexer := lex.NewStringLexer(...)
-//    go lexer.Run()
+//    go lexer.Run(nil, entryPointFn)
 //    for item := range lexer.Items() {
 //      ...
 //    }
 //
-// In order for lexing to start, you must register a special LexFn named
-// __START__
-func (l *StringLexer) Run(ctx interface {}) {
-  for fn := l.MustGetLexFn("__START__"); fn != nil; {
+// In order for lexing to start, you must provide a LexFn that is used
+// as the entry point to lexing
+func (l *StringLexer) Run(ctx interface {}, fn LexFn) {
+  for fn != nil {
     fn = fn(l, ctx)
   }
   close(l.items)
