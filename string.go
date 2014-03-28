@@ -1,5 +1,11 @@
 package lex
 
+import (
+  "fmt"
+  "strings"
+  "unicode/utf8"
+)
+
 // StringLexer is an implementation of Lexer interface, which lexes
 // contents in a string
 type StringLexer struct {
@@ -113,6 +119,12 @@ func (l *StringLexer) Emit(t LexItemType) {
 // Items returns the channel where lex'ed LexItem structs are sent to
 func (l *StringLexer) Items() <-chan LexItem {
   return l.items
+}
+
+// NextItem returns the next LexItem in the processing pipeline.
+// This is just a convenience function over reading l.Items()
+func (l *StringLexer) NextItem() LexItem {
+  return <-l.items
 }
 
 // Run starts the lexing. You should be calling this method as a goroutine:

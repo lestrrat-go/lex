@@ -11,12 +11,6 @@ over.
 */
 package lex
 
-import (
-  "fmt"
-  "strings"
-  "unicode/utf8"
-)
-
 // LexFn defines the lexing function.
 type LexFn func(Lexer) LexFn
 // LexItemType describes the type of a LexItem
@@ -69,6 +63,7 @@ type Lexer interface {
   AcceptRun(string) bool
   Emit(LexItemType)
   Items() <-chan LexItem
+  NextItem() LexItem
   SetLexFn(string, LexFn)
   GetLexFn(string) (LexFn, error)
   MustGetLexFn(string) LexFn

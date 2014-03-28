@@ -1,7 +1,6 @@
 package lex
 
 import (
-  "fmt"
   "testing"
 )
 
