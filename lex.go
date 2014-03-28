@@ -25,6 +25,7 @@ type Lexer interface {
   Accept(string) bool
   AcceptRun(string) bool
   Emit(LexItemType)
+  EmitErrorf(string, ...interface {}) LexFn
   Items() <-chan LexItem
   NextItem() LexItem
   SetLexFn(string, LexFn)
