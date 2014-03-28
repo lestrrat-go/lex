@@ -30,7 +30,7 @@ func TestLex(t *testing.T) {
     return l.MustGetLexFn("__START__")
   })
 
-  go l.Run()
+  go l.Run(l)
 
   expectedItems := []LexItem {
     NewLexItem( ItemNumber, 0, "1" ),
