@@ -12,7 +12,7 @@ const (
 
 func TestLex(t *testing.T) {
   l := NewStringLexer("1 + 2")
-  l.SetLexFn("__START__", func(l Lexer) LexFn {
+  l.SetLexFn("__START__", func(l Lexer, ctx interface {}) LexFn {
     b := l.Peek()
     switch {
     case b >= 0x31 && b <= 39:
@@ -24,7 +24,7 @@ func TestLex(t *testing.T) {
     }
     return nil
   })
-  l.SetLexFn("Number", func(l Lexer) LexFn {
+  l.SetLexFn("Number", func(l Lexer, ctx interface {}) LexFn {
     l.AcceptRun("0123456789")
     l.Emit(ItemNumber)
     return l.MustGetLexFn("__START__")

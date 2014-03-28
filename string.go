@@ -40,7 +40,7 @@ func (l *StringLexer) inputLen() int {
 func (l *StringLexer) Next() (r rune) {
   if l.pos >= l.inputLen() {
     l.width = 0
-    return eof
+    return EOF
   }
 
   r, l.width = utf8.DecodeRuneInString(l.input[l.pos:])
@@ -60,7 +60,17 @@ func (l *StringLexer) Backup() {
   l.pos -= l.width
 }
 
-// AcceptRun takes a string, and moves the cursor fron as long as 
+// Accept takes a string, and moves the cursor 1 rune if the rune is
+// contained in the given string
+func (l *StringLexer) Accept(valid string) bool {
+  if strings.IndexRune(valid, l.Next()) >= 0 {
+    return true
+  }
+  l.Backup()
+  return false
+}
+
+// AcceptRun takes a string, and moves the cursor forward as long as 
 // the input matches one of the given runes in the string
 func (l *StringLexer) AcceptRun(valid string) bool {
   count := 0
@@ -72,9 +82,9 @@ func (l *StringLexer) AcceptRun(valid string) bool {
 }
 
 // EmitErrorf emits an Error Item
-func (l *StringLexer) EmitErrorf(format string, args ...interface {}) {
+func (l *StringLexer) EmitErrorf(format string, args ...interface {}) LexFn {
   l.items <- NewLexItem(ItemError, l.pos, fmt.Sprintf(format, args...))
-  close(l.items)
+  return nil
 }
 
 // SetLexFn associates `name` with the given LexFn
@@ -105,7 +115,7 @@ func (l *StringLexer) MustGetLexFn(name string) LexFn {
 // Grab creates a new LexItem of type `t`. The value in the item is created
 // from the position of the last read item to current cursor position
 func (l *StringLexer) Grab(t LexItemType) LexItem {
-  return LexItem { t, l.start, l.input[l.start:l.pos] }
+  return LexItem { t, l.start, l.BufferString() }
 }
 
 // Emit creates and sends a new LexItem of type `t` through the output
@@ -115,6 +125,35 @@ func (l *StringLexer) Emit(t LexItemType) {
   l.start = l.pos
 }
 
+// PrevByte returns the previous byte (l.Cursor - 1)
+func (l *StringLexer) PrevByte() byte {
+  return l.input[l.pos - 1]
+}
+
+// Cursor returns the current cursor position
+func (l *StringLexer) Cursor() int {
+  return l.pos
+}
+
+// LastCursor returns the end position of the last Grab
+func (l *StringLexer) LastCursor() int {
+  return l.start
+}
+
+// AdvanceCursor advances the cursor position by `n`
+func (l *StringLexer) AdvanceCursor(n int) {
+  l.pos += n
+}
+
+// BufferString reutrns the string beween LastCursor and Cursor
+func (l *StringLexer) BufferString() string {
+  return l.input[l.start:l.pos]
+}
+
+// ReaminingString returns the string starting at the current cursor
+func (l *StringLexer) RemainingString() string {
+  return l.input[l.pos:]
+}
 
 // Items returns the channel where lex'ed LexItem structs are sent to
 func (l *StringLexer) Items() <-chan LexItem {
@@ -137,9 +176,9 @@ func (l *StringLexer) NextItem() LexItem {
 //
 // In order for lexing to start, you must register a special LexFn named
 // __START__
-func (l *StringLexer) Run() {
+func (l *StringLexer) Run(ctx interface {}) {
   for fn := l.MustGetLexFn("__START__"); fn != nil; {
-    fn = fn(l)
+    fn = fn(l, ctx)
   }
   close(l.items)
 }
