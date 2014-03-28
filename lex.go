@@ -18,7 +18,8 @@ const EOF = -1
 
 // Lexer defines the interface for Lexers
 type Lexer interface {
-  Run(interface {}, LexFn)
+  Run(interface {})
+  GetEntryPoint() LexFn
   Next() rune
   Peek() rune
   Backup()

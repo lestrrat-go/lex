@@ -15,11 +15,12 @@ type StringLexer struct {
   pos int
   width int
   items chan LexItem
+  entryPoint LexFn
 }
 
 // NewStringLexer creates a new StringLexer instance. This lexer can be
 // used only once per input string. Do not try to reuse it
-func NewStringLexer(input string) *StringLexer {
+func NewStringLexer(input string, fn LexFn) *StringLexer {
   return &StringLexer {
     input,
     len(input),
@@ -27,7 +28,12 @@ func NewStringLexer(input string) *StringLexer {
     0,
     0,
     make(chan LexItem, 1),
+    fn,
   }
+}
+
+func (l *StringLexer) GetEntryPoint() LexFn {
+  return l.entryPoint
 }
 
 func (l *StringLexer) inputLen() int {
@@ -142,15 +148,13 @@ func (l *StringLexer) NextItem() LexItem {
 // Run starts the lexing. You should be calling this method as a goroutine:
 //
 //    lexer := lex.NewStringLexer(...)
-//    go lexer.Run(nil, entryPointFn)
+//    go lexer.Run(nil)
 //    for item := range lexer.Items() {
 //      ...
 //    }
 //
-// In order for lexing to start, you must provide a LexFn that is used
-// as the entry point to lexing
-func (l *StringLexer) Run(ctx interface {}, fn LexFn) {
-  for fn != nil {
+func (l *StringLexer) Run(ctx interface {}) {
+  for fn := l.GetEntryPoint(); fn != nil; {
     fn = fn(l, ctx)
   }
   close(l.items)

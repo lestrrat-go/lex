@@ -53,8 +53,8 @@ func lexNumber(l Lexer, ctx interface {}) LexFn {
 }
 
 func TestLex(t *testing.T) {
-  l := NewStringLexer("1 + 2")
-  go l.Run(l, lexStart)
+  l := NewStringLexer("1 + 2", lexStart)
+  go l.Run(l)
 
   expectedItems := []LexItem {
     NewLexItem( ItemNumber, 0, "1" ),
