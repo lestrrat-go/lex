@@ -19,7 +19,7 @@ func lexStart(l Lexer, ctx interface {}) LexFn {
     return lexNumber
   case b == '+':
     return lexOperator
-  case b == ' ' || b == 0x0a || b == 0x13 || b == 0x09:
+  case b == ' ' || b == 0x13 || b == 0x09 || b == 0x0a:
     return lexWhitespace
   default:
     l.EmitErrorf("Unexpected char: %q", b)
@@ -28,7 +28,11 @@ func lexStart(l Lexer, ctx interface {}) LexFn {
 }
 
 func lexWhitespace(l Lexer, ctx interface {}) LexFn {
-  if l.AcceptRun(" \t\r\n") {
+  if l.Accept("\n") {
+    l.Emit(ItemWhitespace)
+    return lexStart
+  }
+  if l.AcceptRun(" \t\r") {
     l.Emit(ItemWhitespace)
     return lexStart
   }
@@ -53,16 +57,17 @@ func lexNumber(l Lexer, ctx interface {}) LexFn {
 }
 
 func TestLex(t *testing.T) {
-  l := NewStringLexer("1 + 2", lexStart)
+  l := NewStringLexer("1 +\n 2", lexStart)
   go l.Run(l)
 
-  expectedItems := []LexItem {
-    NewLexItem( ItemNumber, 0, "1" ),
-    NewLexItem( ItemWhitespace, 1, " "),
-    NewLexItem( ItemOperator, 2, "+" ),
-    NewLexItem( ItemWhitespace, 3, " "),
-    NewLexItem( ItemNumber, 4, "2"),
-    NewLexItem( ItemEOF, 5, "" ),
+  expectedItems := []Item {
+    NewItem( ItemNumber, 0, 1, "1" ),
+    NewItem( ItemWhitespace, 1, 1, " "),
+    NewItem( ItemOperator, 2, 1, "+" ),
+    NewItem( ItemWhitespace, 3, 1, "\n"),
+    NewItem( ItemWhitespace, 4, 2, " "),
+    NewItem( ItemNumber, 5, 2, "2"),
+    NewItem( ItemEOF, 6, 2, "" ),
   }
 
   i := 0
@@ -74,6 +79,14 @@ func TestLex(t *testing.T) {
 
     if expected.Pos() != item.Pos() {
       t.Errorf("Pos did not match: Expected %d, got %d", expected.Pos(), item.Pos())
+    }
+
+    if expected.Line() != item.Line() {
+      t.Errorf("Line did not match: Expected %d, got %d", expected.Line(), item.Line())
+    }
+
+    if expected.Value() != item.Value() {
+      t.Errorf("Value did not match: Expected %s, got %s", expected.Value(), item.Value())
     }
     i++
   }

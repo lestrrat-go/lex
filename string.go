@@ -13,6 +13,7 @@ type StringLexer struct {
   inputLength int
   start int
   pos int
+  line int
   width int
   items chan LexItem
   entryPoint LexFn
@@ -26,6 +27,7 @@ func NewStringLexer(input string, fn LexFn) *StringLexer {
     len(input),
     0,
     0,
+    1,
     0,
     make(chan LexItem, 1),
     fn,
@@ -47,6 +49,13 @@ func (l *StringLexer) Next() (r rune) {
     return EOF
   }
 
+  // if the previous char was a new line, then we're at a new line
+  if l.pos >= 0 {
+    if l.input[l.pos] == '\n' {
+      l.line++
+    }
+  }
+
   r, l.width = utf8.DecodeRuneInString(l.input[l.pos:])
   l.pos += l.width
   return r
@@ -62,6 +71,11 @@ func (l *StringLexer) Peek() (r rune) {
 // Backup moves the cursor position (as many bytes as the last read rune)
 func (l *StringLexer) Backup() {
   l.pos -= l.width
+  if l.width == 1 && l.pos >= 0 && l.inputLen() > l.pos {
+    if l.input[l.pos] == '\n' {
+      l.line--
+    }
+  }
 }
 
 // Accept takes a string, and moves the cursor 1 rune if the rune is
@@ -87,19 +101,25 @@ func (l *StringLexer) AcceptRun(valid string) bool {
 
 // EmitErrorf emits an Error Item
 func (l *StringLexer) EmitErrorf(format string, args ...interface {}) LexFn {
-  l.items <- NewLexItem(ItemError, l.pos, fmt.Sprintf(format, args...))
+  l.items <- NewItem(ItemError, l.pos, l.line, fmt.Sprintf(format, args...))
   return nil
 }
 
-// Grab creates a new LexItem of type `t`. The value in the item is created
+// Grab creates a new Item of type `t`. The value in the item is created
 // from the position of the last read item to current cursor position
-func (l *StringLexer) Grab(t LexItemType) LexItem {
-  return LexItem { t, l.start, l.BufferString() }
+func (l *StringLexer) Grab(t ItemType) Item {
+  // special case
+  str := l.BufferString()
+  line := l.line
+  if len(str) > 0 && str[0] == '\n' {
+    line--
+  }
+  return NewItem( t, l.start, line, str )
 }
 
-// Emit creates and sends a new LexItem of type `t` through the output
-// channel. The LexItem is generated using `Grab`
-func (l *StringLexer) Emit(t LexItemType) {
+// Emit creates and sends a new Item of type `t` through the output
+// channel. The Item is generated using `Grab`
+func (l *StringLexer) Emit(t ItemType) {
   l.items <-l.Grab(t)
   l.start = l.pos
 }
@@ -134,12 +154,12 @@ func (l *StringLexer) RemainingString() string {
   return l.input[l.pos:]
 }
 
-// Items returns the channel where lex'ed LexItem structs are sent to
+// Items returns the channel where lex'ed Item structs are sent to
 func (l *StringLexer) Items() <-chan LexItem {
   return l.items
 }
 
-// NextItem returns the next LexItem in the processing pipeline.
+// NextItem returns the next Item in the processing pipeline.
 // This is just a convenience function over reading l.Items()
 func (l *StringLexer) NextItem() LexItem {
   return <-l.items

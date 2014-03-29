@@ -4,12 +4,12 @@ import (
   "fmt"
 )
 
-// LexItemType describes the type of a LexItem
-type LexItemType int
-var TypeNames = make(map[LexItemType]string)
+// ItemType describes the type of a LexItem
+type ItemType int
+var TypeNames = make(map[ItemType]string)
 const (
   // ItemEOF is emiteed upon EOF
-  ItemEOF LexItemType = iota
+  ItemEOF ItemType = iota
   // ItemError is emitted upon Error
   ItemError
   // ItemDefaultMax is used as marker for your own ItemType. 
@@ -23,7 +23,7 @@ func init () {
   TypeNames[ItemDefaultMax] = "Special (DefaultMax)"
 }
 
-func (t LexItemType) String() string {
+func (t ItemType) String() string {
   name, ok := TypeNames[t]
   if ! ok {
     return fmt.Sprintf("Unknown Item (%d)", t)
@@ -31,34 +31,47 @@ func (t LexItemType) String() string {
   return name
 }
 
+type LexItem interface {
+  Type()  ItemType
+  Pos()   int
+  Line()  int
+  Value() string
+}
+
 // LexItem is the struct that gets generated upon finding *something*
-type LexItem struct {
-  typ LexItemType
+type Item struct {
+  typ ItemType
   pos int
+  line int
   val string
 }
 
-// NewLexItem creates a new LexItem
-func NewLexItem(t LexItemType, pos int, v string) LexItem {
-  return LexItem { t, pos, v }
+// NewItem creates a new Item
+func NewItem(t ItemType, pos int, line int, v string) Item {
+  return Item { t, pos, line, v }
 }
 
-// Type returns the associated LexItemType
-func (l LexItem) Type() LexItemType {
+// Type returns the associated ItemType
+func (l Item) Type() ItemType {
   return l.typ
 }
 
 // Pos returns the associated position
-func (l LexItem) Pos() int {
+func (l Item) Pos() int {
   return l.pos
 }
 
+// Line returns the line number in which this occurred
+func (l Item) Line() int {
+  return l.line
+}
+
 // Value returns the associated text value
-func (l LexItem) Value() string {
+func (l Item) Value() string {
   return l.val
 }
 
-// String returns the string representation of the LexItem
-func (l LexItem) String() string {
+// String returns the string representation of the Item
+func (l Item) String() string {
   return fmt.Sprintf("%s (%s)", l.typ, l.val)
 }
