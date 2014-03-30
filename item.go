@@ -6,7 +6,11 @@ import (
 
 // ItemType describes the type of a LexItem
 type ItemType int
+
+// TypeNames contains the name of reach ItemType. This is used for
+// printing the values out in a human readable format
 var TypeNames = make(map[ItemType]string)
+
 const (
   // ItemEOF is emiteed upon EOF
   ItemEOF ItemType = iota
@@ -31,6 +35,7 @@ func (t ItemType) String() string {
   return name
 }
 
+// LexItem defines the interface for items emitted by the Lexer
 type LexItem interface {
   Type()  ItemType
   Pos()   int
@@ -38,7 +43,7 @@ type LexItem interface {
   Value() string
 }
 
-// LexItem is the struct that gets generated upon finding *something*
+// Item is the struct that gets generated upon finding *something*
 type Item struct {
   typ ItemType
   pos int

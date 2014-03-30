@@ -1,6 +1,7 @@
 package lex
 
 import (
+  "bytes"
   "testing"
 )
 
@@ -56,10 +57,21 @@ func lexNumber(l Lexer, ctx interface {}) LexFn {
   return l.EmitErrorf("Expected number")
 }
 
-func TestLex(t *testing.T) {
+func TestStringLexer(t *testing.T) {
   l := NewStringLexer("1 +\n 2", lexStart)
   go l.Run(l)
 
+  verify(t, l)
+}
+
+func TestReaderLexer(t *testing.T) {
+  l := NewReaderLexer(bytes.NewBufferString("1 +\n 2"), lexStart)
+  go l.Run(l)
+
+  verify(t, l)
+}
+
+func verify(t *testing.T, l Lexer) {
   expectedItems := []Item {
     NewItem( ItemNumber, 0, 1, "1" ),
     NewItem( ItemWhitespace, 1, 1, " "),
@@ -72,6 +84,11 @@ func TestLex(t *testing.T) {
 
   i := 0
   for item := range l.Items() {
+t.Logf("----")
+    if i >= len(expectedItems) {
+      t.Fatalf("expected %d items, received more than that (%#v)", len(expectedItems), item)
+    }
+t.Logf("got %#v", item)
     expected := expectedItems[i]
     if expected.Type() != item.Type() {
       t.Errorf("Type did not match: Expected %d, got %d", expected.Type(), item.Type())
@@ -86,7 +103,7 @@ func TestLex(t *testing.T) {
     }
 
     if expected.Value() != item.Value() {
-      t.Errorf("Value did not match: Expected %s, got %s", expected.Value(), item.Value())
+      t.Errorf("Value did not match: Expected '%s', got '%s'", expected.Value(), item.Value())
     }
     i++
   }

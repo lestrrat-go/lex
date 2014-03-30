@@ -2,7 +2,6 @@ package lex
 
 import (
   "fmt"
-  "strings"
   "unicode/utf8"
 )
 
@@ -34,6 +33,7 @@ func NewStringLexer(input string, fn LexFn) *StringLexer {
   }
 }
 
+// GetEntryPoint returns the function that lexing is started with
 func (l *StringLexer) GetEntryPoint() LexFn {
   return l.entryPoint
 }
@@ -81,22 +81,13 @@ func (l *StringLexer) Backup() {
 // Accept takes a string, and moves the cursor 1 rune if the rune is
 // contained in the given string
 func (l *StringLexer) Accept(valid string) bool {
-  if strings.IndexRune(valid, l.Next()) >= 0 {
-    return true
-  }
-  l.Backup()
-  return false
+  return Accept(l, valid)
 }
 
 // AcceptRun takes a string, and moves the cursor forward as long as 
 // the input matches one of the given runes in the string
 func (l *StringLexer) AcceptRun(valid string) bool {
-  count := 0
-  for strings.IndexRune(valid, l.Next()) >= 0 {
-    count++
-  }
-  l.Backup()
-  return count > 0
+  return AcceptRun(l, valid)
 }
 
 // EmitErrorf emits an Error Item
@@ -149,13 +140,13 @@ func (l *StringLexer) BufferString() string {
   return l.input[l.start:l.pos]
 }
 
-// ReaminingString returns the string starting at the current cursor
+// RemainingString returns the string starting at the current cursor
 func (l *StringLexer) RemainingString() string {
   return l.input[l.pos:]
 }
 
 // Items returns the channel where lex'ed Item structs are sent to
-func (l *StringLexer) Items() <-chan LexItem {
+func (l *StringLexer) Items() chan LexItem {
   return l.items
 }
 
@@ -168,15 +159,13 @@ func (l *StringLexer) NextItem() LexItem {
 // Run starts the lexing. You should be calling this method as a goroutine:
 //
 //    lexer := lex.NewStringLexer(...)
-//    go lexer.Run(nil)
+//    go lexer.Run(lexer)
 //    for item := range lexer.Items() {
 //      ...
 //    }
 //
-func (l *StringLexer) Run(ctx interface {}) {
-  for fn := l.GetEntryPoint(); fn != nil; {
-    fn = fn(l, ctx)
-  }
-  close(l.items)
+func (l *StringLexer) Run(ctx Lexer) {
+  LexRun(l, ctx)
 }
+
 
