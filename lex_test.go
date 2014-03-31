@@ -29,7 +29,7 @@ func lexStart(l Lexer, ctx interface {}) LexFn {
 }
 
 func lexWhitespace(l Lexer, ctx interface {}) LexFn {
-  if l.Accept("\n") {
+  if l.AcceptString("\n") {
     l.Emit(ItemWhitespace)
     return lexStart
   }
@@ -41,7 +41,7 @@ func lexWhitespace(l Lexer, ctx interface {}) LexFn {
 }
 
 func lexOperator(l Lexer, ctx interface {}) LexFn {
-  if l.Accept("+") {
+  if l.AcceptString("+") {
     l.Emit(ItemOperator)
     return lexStart
   }
@@ -64,16 +64,16 @@ func TestStringLexer(t *testing.T) {
   verify(t, l)
 }
 
-func TestLexer_Accept(t *testing.T) {
+func TestLexer_AcceptString(t *testing.T) {
   var l Lexer
   var c LexItem
 
 t.Logf("-----> String")
   l = NewStringLexer("HELLO user", nil)
-  if l.Accept("HELLONEARTH") {
+  if l.AcceptString("HELLONEARTH") {
     t.Errorf("Accepted HELLONEARTH?!")
   }
-  if ! l.Accept("HELLO") {
+  if ! l.AcceptString("HELLO") {
     t.Errorf("Failed to accept HELLO")
   }
   l.Emit(ItemOperator)
@@ -82,10 +82,10 @@ t.Logf("-----> String")
 
 t.Logf("-----> Reader")
   l = NewReaderLexer(bytes.NewBufferString("HELLO user"), nil)
-  if l.Accept("HELLONEARTH") {
+  if l.AcceptString("HELLONEARTH") {
     t.Errorf("Accepted HELLONEARTH?!")
   }
-  if ! l.Accept("HELLO") {
+  if ! l.AcceptString("HELLO") {
     t.Errorf("Failed to accept HELLO")
   }
   l.Emit(ItemOperator)
