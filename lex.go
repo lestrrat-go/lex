@@ -26,15 +26,18 @@ const EOF = -1
 type Lexer interface {
   Run(Lexer)
   GetEntryPoint() LexFn
+  Current() rune
   Next() rune
   Peek() rune
   Backup()
+  PeekString(string) bool
   AcceptString(string) bool
   AcceptAny(string) bool
   AcceptRun(string) bool
   EmitErrorf(string, ...interface {}) LexFn
   Emit(ItemType)
   Items() chan LexItem
+  BufferString() string
   NextItem() LexItem
 }
 
@@ -64,29 +67,56 @@ func AcceptAny(l Lexer, valid string) bool {
 // the input matches one of the given runes in the string
 // This is a utility function to be called from concrete Lexer types
 func AcceptRun(l Lexer, valid string) bool {
+  guard := Mark("lex.AcceptRun %q", valid)
+  defer guard()
+
   count := 0
-  for strings.IndexRune(valid, l.Next()) >= 0 {
-    count++
+  for {
+    n := l.Next()
+    Trace("%d: n -> %q\n", count, n)
+    if strings.IndexRune(valid, n) >= 0 {
+      count++
+    } else {
+      break
+    }
   }
   l.Backup()
+
+  Trace("%d matches\n", count)
   return count > 0
 }
 
 // AcceptString returns true if the given string can be matched exactly.
 // This is a utility function to be called from concrete Lexer types
-func AcceptString(l Lexer, word string) bool {
+func AcceptString(l Lexer, word string, rewind bool) (ok bool) {
   i := 0
+  defer func() {
+    if rewind {
+      Trace("Rewinding AccepString(%q) (%d runes)\n", word, i)
+      for j := i; j > 0; j-- {
+        l.Backup()
+      }
+    }
+    Trace("AcceptString returning %s\n", ok)
+  }()
+
   for pos := 0; pos < len(word); {
     r, width := utf8.DecodeRuneInString(word[pos:])
     pos += width
-    n := l.Next()
-    if r != n {
-      for j := i; j >= 0; j-- {
-        l.Backup()
-      }
-      return false;
+    var n rune
+    if pos == 0 {
+      n = l.Current()
+    } else {
+      n = l.Next()
     }
     i++
+    Trace("r (%q) == n (%q) %s ? \n", r, n, r == n)
+    if r != n {
+      rewind = true
+      ok     = false
+      return
+    }
   }
-  return true
+  ok = true
+  return
 }

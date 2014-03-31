@@ -42,6 +42,11 @@ func (l *StringLexer) inputLen() int {
   return l.inputLength
 }
 
+func (l *StringLexer) Current() (r rune) {
+  r, _ = utf8.DecodeRuneInString(l.input[l.pos:])
+  return r
+}
+
 // Next returns the next rune
 func (l *StringLexer) Next() (r rune) {
   if l.pos >= l.inputLen() {
@@ -81,7 +86,11 @@ func (l *StringLexer) Backup() {
 // AcceptString returns true if the given string can be matched exactly.
 // This is a utility function to be called from concrete Lexer types
 func (l *StringLexer) AcceptString(word string) bool {
-  return AcceptString(l, word)
+  return AcceptString(l, word, false)
+}
+
+func (l *StringLexer) PeekString(word string) bool {
+  return AcceptString(l, word, true)
 }
 
 // AcceptAny takes a string, and moves the cursor 1 rune if the rune is

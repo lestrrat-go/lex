@@ -4,6 +4,7 @@ import (
   "bufio"
   "io"
   "fmt"
+  "strings"
   "unicode/utf8"
 )
 
@@ -24,13 +25,21 @@ func NewReaderLexer(in io.Reader, fn LexFn) *ReaderLexer {
   return &ReaderLexer {
     bufio.NewReader(in),
     0,
-    0,
-    0,
+    -1,
+    -1,
     1,
     []rune {},
     make(chan LexItem, 1),
     fn,
   }
+}
+
+func (l *ReaderLexer) Current() (r rune) {
+  if len(l.buf) == 0 {
+    return l.Next()
+  }
+
+  return l.buf[l.peekLoc]
 }
 
 // Next returns the next rune
@@ -97,32 +106,48 @@ func (l *ReaderLexer) Next() (r rune) {
                         |
                         peekLoc
   */
-  loc := l.peekLoc
-  if len(l.buf) == l.peekLoc {
-    r, _, err := l.source.ReadRune()
-    if err == io.EOF {
-      r = -1
-      err = nil
-    }
+  guard := Mark("Next")
+  defer func() {
+    Trace("return = %q", r)
+    guard()
+  }()
 
-    if err == nil {
+  if l.pos == -1 || len(l.buf) == l.peekLoc + 1 {
+    r, _, err := l.source.ReadRune()
+    switch err {
+    case nil:
       l.peekLoc++
       l.pos++
       l.buf = append(l.buf, r)
+    case io.EOF:
+      l.peekLoc++
+      l.pos++
+      r = -1
+      if l.buf[len(l.buf)-1] != r {
+        l.buf = append(l.buf, r)
+      }
     }
   } else {
     l.peekLoc++
     l.pos++
   }
 
-  if loc >= 0 && l.buf[loc] == '\n' {
-    l.line++
+  loc := l.peekLoc
+
+  if loc < 0 || len(l.buf) <= loc {
+    return EOF
+//    panic(fmt.Sprintf("FATAL: loc = %d, l.buf = %q (len = %d)", loc, l.buf, len(l.buf)))
   }
+
+  Trace("l.buf = %q, loc = %d", l.buf, loc)
   return l.buf[loc]
 }
 
 // Peek returns the next rune, but does not move the position
 func (l *ReaderLexer) Peek() (r rune) {
+  guard := Mark("Peek")
+  defer guard()
+
   r = l.Next()
   l.Backup()
   return r
@@ -130,20 +155,32 @@ func (l *ReaderLexer) Peek() (r rune) {
 
 // Backup moves the cursor 1 position 
 func (l *ReaderLexer) Backup() {
-  if l.pos > 0 {
-    l.pos--
-    l.peekLoc = l.pos // align
-  }
+  guard := Mark("Backup")
+  defer guard()
 
+  l.pos--
+  l.peekLoc = l.pos // align
+
+/*
   if l.peekLoc >= 0 && len(l.buf) > l.peekLoc && l.buf[l.peekLoc] == '\n' {
+    Trace("l.peekLoc = %d, and l.buf[%d] is '\\n'", l.peekLoc, l.peekLoc)
     l.line--
   }
+*/
 }
 
 // AcceptString returns true if the given string can be matched exactly.
 // This is a utility function to be called from concrete Lexer types
 func (l *ReaderLexer) AcceptString(word string) bool {
-  return AcceptString(l, word)
+  guard := Mark("AcceptString")
+  defer guard()
+  return AcceptString(l, word, false)
+}
+
+func (l *ReaderLexer) PeekString(word string) bool {
+  guard := Mark("PeekString")
+  defer guard()
+  return AcceptString(l, word, true)
 }
 
 // AcceptAny takes a string which contains a set of runes that can be accepted.
@@ -156,6 +193,8 @@ func (l *ReaderLexer) AcceptAny(valid string) bool {
 // AcceptRun takes a string, and moves the cursor forward as long as 
 // the input matches one of the given runes in the string
 func (l *ReaderLexer) AcceptRun(valid string) bool {
+  guard := Mark("AcceptRun")
+  defer guard()
   return AcceptRun(l, valid)
 }
 
@@ -171,30 +210,64 @@ func (l *ReaderLexer) EmitErrorf(format string, args ...interface {}) LexFn {
   return nil
 }
 
+func (l *ReaderLexer) BufferString() (str string) {
+  guard := Mark("BufferString")
+  defer func() {
+    Trace("BufferString() -> l.pos = %d, l.buf = %q, return = %q\n", l.pos, l.buf, str)
+    guard()
+  }()
+
+  Trace("l.buf = %q, l.pos = %d", l.buf, l.pos)
+
+  total := 0
+  for i := 0; len(l.buf) > i && i < l.pos + 1; i++ {
+    Trace("l.buf[%d] = %q\n", i, l.buf[i])
+    if l.buf[i] == -1 {
+      break
+    }
+    total += utf8.RuneLen(l.buf[i])
+  }
+
+  Trace("Expecting buffer to contain %d bytes", total)
+  if total == 0 {
+    str = ""
+    return
+  }
+
+  strbuf := make([]byte, total)
+  pos := 0
+  for i := 0; len(l.buf) > i && i < l.pos + 1; i++ {
+    if l.buf[i] == -1 {
+      break
+    }
+    Trace("Encoding rune %q into position %d", l.buf[i], pos)
+    pos += utf8.EncodeRune(strbuf[pos:], l.buf[i])
+  }
+  Trace("%q (%d)\n", strbuf, len(strbuf))
+
+  str = string(strbuf)
+  return str
+}
+
 // Grab creates a new Item of type `t`. The value in the item is created
 // from the position of the last read item to current cursor position
 func (l *ReaderLexer) Grab(t ItemType) Item {
+  guard := Mark("Grab")
+  defer guard()
   // special case
   line := l.line
-  if len(l.buf) > 0 && l.buf[0] == '\n' {
-    line--
-  }
 
-  total := 0
-  for i := 0; i < l.pos; i++ {
-    total += utf8.RuneLen(l.buf[i])
+  strbuf := l.BufferString()
+  if strings.ContainsRune(strbuf, '\n') {
+    l.line++
   }
-  strbuf := make([]byte, total)
-  pos := 0
-  for i := 0; i < l.pos; i++ {
-    pos += utf8.EncodeRune(strbuf[pos:], l.buf[i])
-  }
+  strlen := len(strbuf)
 
-  item := NewItem( t, l.start, line, string(strbuf) )
-  l.buf = l.buf[l.pos:]
-  l.peekLoc = l.peekLoc - l.pos
-  l.pos = 0
-  l.start += len(strbuf)
+  item := NewItem( t, l.start, line, strbuf )
+  l.buf = l.buf[strlen:]
+  l.peekLoc = l.peekLoc - l.pos -1
+  l.pos = -1
+  l.start += strlen
   return item
 }
 

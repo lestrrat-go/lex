@@ -12,6 +12,9 @@ const (
 )
 
 func lexStart(l Lexer, ctx interface {}) LexFn {
+  guard := Mark("lexStart")
+  defer guard()
+
   b := l.Peek()
   switch {
   case b == EOF:
@@ -29,6 +32,8 @@ func lexStart(l Lexer, ctx interface {}) LexFn {
 }
 
 func lexWhitespace(l Lexer, ctx interface {}) LexFn {
+  guard := Mark("lexWhitespace")
+  defer guard()
   if l.AcceptString("\n") {
     l.Emit(ItemWhitespace)
     return lexStart
@@ -41,6 +46,8 @@ func lexWhitespace(l Lexer, ctx interface {}) LexFn {
 }
 
 func lexOperator(l Lexer, ctx interface {}) LexFn {
+  guard := Mark("lexOperator")
+  defer guard()
   if l.AcceptString("+") {
     l.Emit(ItemOperator)
     return lexStart
@@ -50,6 +57,8 @@ func lexOperator(l Lexer, ctx interface {}) LexFn {
 }
 
 func lexNumber(l Lexer, ctx interface {}) LexFn {
+  guard := Mark("lexNumber")
+  defer guard()
   if l.AcceptRun("0123456789") {
     l.Emit(ItemNumber)
     return lexStart
