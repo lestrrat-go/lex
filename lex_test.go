@@ -64,6 +64,35 @@ func TestStringLexer(t *testing.T) {
   verify(t, l)
 }
 
+func TestLexer_Accept(t *testing.T) {
+  var l Lexer
+  var c LexItem
+
+t.Logf("-----> String")
+  l = NewStringLexer("HELLO user", nil)
+  if l.Accept("HELLONEARTH") {
+    t.Errorf("Accepted HELLONEARTH?!")
+  }
+  if ! l.Accept("HELLO") {
+    t.Errorf("Failed to accept HELLO")
+  }
+  l.Emit(ItemOperator)
+  c = <-l.Items()
+  t.Logf("%#v", c)
+
+t.Logf("-----> Reader")
+  l = NewReaderLexer(bytes.NewBufferString("HELLO user"), nil)
+  if l.Accept("HELLONEARTH") {
+    t.Errorf("Accepted HELLONEARTH?!")
+  }
+  if ! l.Accept("HELLO") {
+    t.Errorf("Failed to accept HELLO")
+  }
+  l.Emit(ItemOperator)
+  c = <-l.Items()
+  t.Logf("%#v", c)
+}
+
 func TestReaderLexer(t *testing.T) {
   l := NewReaderLexer(bytes.NewBufferString("1 +\n 2"), lexStart)
   go l.Run(l)

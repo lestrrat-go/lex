@@ -13,6 +13,7 @@ package lex
 
 import (
   "strings"
+  "unicode/utf8"
 )
 
 // LexFn defines the lexing function.
@@ -28,7 +29,8 @@ type Lexer interface {
   Next() rune
   Peek() rune
   Backup()
-  Accept(string) bool
+  AcceptString(string) bool
+  AcceptAny(string) bool
   AcceptRun(string) bool
   EmitErrorf(string, ...interface {}) LexFn
   Emit(ItemType)
@@ -46,10 +48,11 @@ func LexRun(l, ctx Lexer) {
   close(l.Items())
 }
 
-// Accept takes a string, and moves the cursor 1 rune if the rune is
-// contained in the given string. 
+// AcceptAny takes a string which contains a set of runes that can be accepted.
+// This method moves the cursor 1 rune if the rune is contained in the given 
+// string. 
 // This is a utility function to be called from concrete Lexer types
-func Accept(l Lexer, valid string) bool {
+func AcceptAny(l Lexer, valid string) bool {
   if strings.IndexRune(valid, l.Next()) >= 0 {
     return true
   }
@@ -69,3 +72,21 @@ func AcceptRun(l Lexer, valid string) bool {
   return count > 0
 }
 
+// AcceptString returns true if the given string can be matched exactly.
+// This is a utility function to be called from concrete Lexer types
+func AcceptString(l Lexer, word string) bool {
+  i := 0
+  for pos := 0; pos < len(word); {
+    r, width := utf8.DecodeRuneInString(word[pos:])
+    pos += width
+    n := l.Next()
+    if r != n {
+      for j := i; j >= 0; j-- {
+        l.Backup()
+      }
+      return false;
+    }
+    i++
+  }
+  return true
+}

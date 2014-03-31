@@ -78,10 +78,16 @@ func (l *StringLexer) Backup() {
   }
 }
 
-// Accept takes a string, and moves the cursor 1 rune if the rune is
+// AcceptString returns true if the given string can be matched exactly.
+// This is a utility function to be called from concrete Lexer types
+func (l *StringLexer) AcceptString(word string) bool {
+  return AcceptString(l, word)
+}
+
+// AcceptAny takes a string, and moves the cursor 1 rune if the rune is
 // contained in the given string
-func (l *StringLexer) Accept(valid string) bool {
-  return Accept(l, valid)
+func (l *StringLexer) AcceptAny(valid string) bool {
+  return AcceptAny(l, valid)
 }
 
 // AcceptRun takes a string, and moves the cursor forward as long as 

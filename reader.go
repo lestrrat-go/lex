@@ -12,8 +12,8 @@ type ReaderLexer struct {
   source      *bufio.Reader
   start       int
   pos         int
+  peekLoc     int
   line        int
-  peekCount   int
   buf         []rune
   items       chan LexItem
   entryPoint  LexFn
@@ -25,8 +25,8 @@ func NewReaderLexer(in io.Reader, fn LexFn) *ReaderLexer {
     bufio.NewReader(in),
     0,
     0,
+    0,
     1,
-    -1,
     []rune {},
     make(chan LexItem, 1),
     fn,
@@ -35,26 +35,90 @@ func NewReaderLexer(in io.Reader, fn LexFn) *ReaderLexer {
 
 // Next returns the next rune
 func (l *ReaderLexer) Next() (r rune) {
-  if l.peekCount == len(l.buf) - 1 {
+  /* Illustrated guide to how the cursors move:
+
+                pos
+                |
+                v
+  buf | a | b | c |
+                ^
+                |
+                peekLoc
+
+  -> l.Nex() -> returns d
+
+                    pos
+                    |
+                    v
+  buf | a | b | c | d |
+                    ^
+                    |
+                    peekLoc
+
+  
+  -> l.Peek() -> returns e
+                   
+                    pos
+                    |
+                    v
+  buf | a | b | c | d | e |
+                        ^
+                        |
+                        peekLoc
+
+  -> l.Backup()
+  -> l.Backup()
+
+                pos
+                |
+                v
+  buf | a | b | c | d | e |
+                ^
+                |
+                peekLoc
+
+  -> l.Next() -> returns c
+
+                    pos
+                    |
+                    v
+  buf | a | b | c | d | e |
+                    ^
+                    |
+                    peekLoc
+
+  -> l.Next() -> returns d
+
+                        pos
+                        |
+                        v
+  buf | a | b | c | d | e |
+                        ^
+                        |
+                        peekLoc
+  */
+  loc := l.peekLoc
+  if len(l.buf) == l.peekLoc {
     r, _, err := l.source.ReadRune()
+    if err == io.EOF {
+      r = -1
+      err = nil
+    }
+
     if err == nil {
-      l.peekCount++
+      l.peekLoc++
+      l.pos++
       l.buf = append(l.buf, r)
-    } else if err == io.EOF {
-      l.peekCount++
-      l.buf = append(l.buf, -1)
-    } else {
-      panic(err.Error())
     }
   } else {
-    l.peekCount = 0
+    l.peekLoc++
+    l.pos++
   }
-  l.pos++
 
-  if l.buf[l.peekCount] == '\n' {
+  if loc >= 0 && l.buf[loc] == '\n' {
     l.line++
   }
-  return l.buf[l.peekCount]
+  return l.buf[loc]
 }
 
 // Peek returns the next rune, but does not move the position
@@ -66,17 +130,27 @@ func (l *ReaderLexer) Peek() (r rune) {
 
 // Backup moves the cursor 1 position 
 func (l *ReaderLexer) Backup() {
-  if l.peekCount >= 0 && len(l.buf) > l.peekCount && l.buf[l.peekCount] == '\n' {
+  if l.pos > 0 {
+    l.pos--
+    l.peekLoc = l.pos // align
+  }
+
+  if l.peekLoc >= 0 && len(l.buf) > l.peekLoc && l.buf[l.peekLoc] == '\n' {
     l.line--
   }
-  l.peekCount--
-  l.pos--
 }
 
-// Accept takes a string, and moves the cursor 1 rune if the rune is
-// contained in the given string
-func (l *ReaderLexer) Accept(valid string) bool {
-  return Accept(l, valid)
+// AcceptString returns true if the given string can be matched exactly.
+// This is a utility function to be called from concrete Lexer types
+func (l *ReaderLexer) AcceptString(word string) bool {
+  return AcceptString(l, word)
+}
+
+// AcceptAny takes a string which contains a set of runes that can be accepted.
+// This method moves the cursor 1 rune if the rune is contained in the given 
+// string. 
+func (l *ReaderLexer) AcceptAny(valid string) bool {
+  return AcceptAny(l, valid)
 }
 
 // AcceptRun takes a string, and moves the cursor forward as long as 
@@ -118,11 +192,7 @@ func (l *ReaderLexer) Grab(t ItemType) Item {
 
   item := NewItem( t, l.start, line, string(strbuf) )
   l.buf = l.buf[l.pos:]
-  if len(l.buf) > 0 {
-    l.peekCount = l.peekCount - l.pos
-  } else {
-    l.peekCount = -1
-  }
+  l.peekLoc = l.peekLoc - l.pos
   l.pos = 0
   l.start += len(strbuf)
   return item
