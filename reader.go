@@ -146,7 +146,10 @@ func (l *ReaderLexer) Next() (r rune) {
 // Peek returns the next rune, but does not move the position
 func (l *ReaderLexer) Peek() (r rune) {
   guard := Mark("Peek")
-  defer guard()
+  defer func() {
+    Trace("return = %q", r)
+    guard()
+  }()
 
   r = l.Next()
   l.Backup()
@@ -160,13 +163,7 @@ func (l *ReaderLexer) Backup() {
 
   l.pos--
   l.peekLoc = l.pos // align
-
-/*
-  if l.peekLoc >= 0 && len(l.buf) > l.peekLoc && l.buf[l.peekLoc] == '\n' {
-    Trace("l.peekLoc = %d, and l.buf[%d] is '\\n'", l.peekLoc, l.peekLoc)
-    l.line--
-  }
-*/
+  Trace("Backed up l.pos = %d", l.pos)
 }
 
 // AcceptString returns true if the given string can be matched exactly.
@@ -264,10 +261,11 @@ func (l *ReaderLexer) Grab(t ItemType) Item {
   strlen := len(strbuf)
 
   item := NewItem( t, l.start, line, strbuf )
-  l.buf = l.buf[strlen:]
+  l.buf = l.buf[utf8.RuneCountInString(strbuf):]
   l.peekLoc = l.peekLoc - l.pos -1
   l.pos = -1
   l.start += strlen
+  Trace("Emit item %#v", item)
   return item
 }
 
