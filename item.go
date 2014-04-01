@@ -78,5 +78,5 @@ func (l Item) Value() string {
 
 // String returns the string representation of the Item
 func (l Item) String() string {
-  return fmt.Sprintf("%s (%s)", l.typ, l.val)
+  return fmt.Sprintf("%s (%q)", l.typ, l.val)
 }
