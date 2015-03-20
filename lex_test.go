@@ -18,6 +18,7 @@ func ExampleLexer() {
 
 	for item := range l.Items() {
 		// Do your processing here
+		_ = item
 	}
 }
 
