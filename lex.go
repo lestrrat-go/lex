@@ -46,8 +46,9 @@ type Lexer interface {
 	Backup()
 	PeekString(string) bool
 	AcceptString(string) bool
-	AcceptAny(string) bool
 	AcceptRun(string) bool
+	AcceptRunFunc(func(r rune) bool) bool
+	AcceptRunExcept(string) bool
 	EmitErrorf(string, ...interface{}) LexFn
 	Emit(ItemType)
 	Items() chan LexItem
@@ -65,10 +66,8 @@ func LexRun(l Lexer) {
 	close(l.Items())
 }
 
-// AcceptAny takes a string which contains a set of runes that can be accepted.
 // This method moves the cursor 1 rune if the rune is contained in the given
-// string.
-// This is a utility function to be called from concrete Lexer types
+// string. This is a utility function to be called from concrete Lexer types
 func AcceptAny(l Lexer, valid string) bool {
 	if strings.IndexRune(valid, l.Next()) >= 0 {
 		return true
@@ -77,27 +76,45 @@ func AcceptAny(l Lexer, valid string) bool {
 	return false
 }
 
-// AcceptRun takes a string, and moves the cursor forward as long as
-// the input matches one of the given runes in the string
-// This is a utility function to be called from concrete Lexer types
-func AcceptRun(l Lexer, valid string) bool {
-	guard := Mark("lex.AcceptRun %q", valid)
+func AcceptRunFunc(l Lexer, fn func(rune) bool) bool {
+	guard := Mark("lex.AcceptRunFunc")
 	defer guard()
 
 	count := 0
 	for {
 		n := l.Next()
 		Trace("%d: n -> %q\n", count, n)
-		if strings.IndexRune(valid, n) >= 0 {
-			count++
-		} else {
+		if !fn(n) {
 			break
 		}
+
+		count++
 	}
 	l.Backup()
-
 	Trace("%d matches\n", count)
 	return count > 0
+}
+
+// AcceptRun takes a string, and moves the cursor forward as long as
+// the input matches one of the given runes in the string
+// This is a utility function to be called from concrete Lexer types
+func AcceptRun(l Lexer, valid string) bool {
+	guard := Mark("lex.AcceptRun %q", valid)
+	defer guard()
+	return AcceptRunFunc(l, func(r rune) bool {
+		return strings.IndexRune(valid, r) >= 0
+	})
+}
+
+// AcceptRunExcept takes a string, and moves the cursor forward as 
+// long as the input DOES NOT match one of the given runes in the string
+// This is a utility function to be called from concrete Lexer types
+func AcceptRunExcept(l Lexer, valid string) bool {
+	guard := Mark("lex.AcceptRunExcept %q", valid)
+	defer guard()
+	return AcceptRunFunc(l, func(r rune) bool {
+		return strings.IndexRune(valid, r) < 0
+	})
 }
 
 // AcceptString returns true if the given string can be matched exactly.

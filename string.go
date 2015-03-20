@@ -102,10 +102,26 @@ func (l *StringLexer) AcceptAny(valid string) bool {
 	return AcceptAny(l, valid)
 }
 
+// AcceptRunFunc takes a function, and moves the cursor forward as long as
+// the function returns true
+func (l *StringLexer) AcceptRunFunc(fn func(r rune) bool) bool {
+	guard := Mark("AcceptRun")
+	defer guard()
+	return AcceptRunFunc(l, fn)
+}
+
 // AcceptRun takes a string, and moves the cursor forward as long as
 // the input matches one of the given runes in the string
 func (l *StringLexer) AcceptRun(valid string) bool {
 	return AcceptRun(l, valid)
+}
+
+// AcceptRunExcept takes a string, and moves the cursor forward as 
+// long as the input DOES NOT match one of the given runes in the string
+func (l *StringLexer) AcceptRunExcept(valid string) bool {
+	guard := Mark("AcceptRunExcept")
+	defer guard()
+	return AcceptRunExcept(l, valid)
 }
 
 // EmitErrorf emits an Error Item

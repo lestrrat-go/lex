@@ -190,12 +190,28 @@ func (l *ReaderLexer) AcceptAny(valid string) bool {
 	return AcceptAny(l, valid)
 }
 
+// AcceptRunFunc takes a function, and moves the cursor forward as long as
+// the function returns true
+func (l *ReaderLexer) AcceptRunFunc(fn func(r rune) bool) bool {
+	guard := Mark("AcceptRun")
+	defer guard()
+	return AcceptRunFunc(l, fn)
+}
+
 // AcceptRun takes a string, and moves the cursor forward as long as
 // the input matches one of the given runes in the string
 func (l *ReaderLexer) AcceptRun(valid string) bool {
 	guard := Mark("AcceptRun")
 	defer guard()
 	return AcceptRun(l, valid)
+}
+
+// AcceptRunExcept takes a string, and moves the cursor forward as 
+// long as the input DOES NOT match one of the given runes in the string
+func (l *ReaderLexer) AcceptRunExcept(valid string) bool {
+	guard := Mark("AcceptRunExcept")
+	defer guard()
+	return AcceptRunExcept(l, valid)
 }
 
 // Emit creates and sends a new Item of type `t` through the output
