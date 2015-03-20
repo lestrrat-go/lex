@@ -22,14 +22,14 @@ type StringLexer struct {
 // used only once per input string. Do not try to reuse it
 func NewStringLexer(input string, fn LexFn) *StringLexer {
 	return &StringLexer{
-		input,
-		len(input),
-		0,
-		0,
-		1,
-		0,
-		make(chan LexItem, 1),
-		fn,
+		input:       input,
+		inputLength: len(input),
+		start:       0,
+		pos:         0,
+		line:        1,
+		width:       0,
+		items:       make(chan LexItem, 1),
+		entryPoint:  fn,
 	}
 }
 
@@ -42,6 +42,7 @@ func (l *StringLexer) inputLen() int {
 	return l.inputLength
 }
 
+// Current returns the current rune being considered
 func (l *StringLexer) Current() (r rune) {
 	r, _ = utf8.DecodeRuneInString(l.input[l.pos:])
 	return r
@@ -89,6 +90,8 @@ func (l *StringLexer) AcceptString(word string) bool {
 	return AcceptString(l, word, false)
 }
 
+// PeekString returns true if the given string can be matched exactly,
+// but does not move the position
 func (l *StringLexer) PeekString(word string) bool {
 	return AcceptString(l, word, true)
 }
@@ -174,11 +177,11 @@ func (l *StringLexer) NextItem() LexItem {
 // Run starts the lexing. You should be calling this method as a goroutine:
 //
 //    lexer := lex.NewStringLexer(...)
-//    go lexer.Run(lexer)
+//    go lexer.Run()
 //    for item := range lexer.Items() {
 //      ...
 //    }
 //
-func (l *StringLexer) Run(ctx Lexer) {
-	LexRun(l, ctx)
+func (l *StringLexer) Run() {
+	LexRun(l)
 }

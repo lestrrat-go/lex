@@ -6,36 +6,36 @@ import (
 	"strconv"
 )
 
-var Debug = false
-var Logger = log.New(os.Stderr, "", 0)
+var debug = false
+var logger = log.New(os.Stderr, "", 0)
 
 func init() {
 	v, err := strconv.ParseBool(os.Getenv("LEX_DEBUG"))
 	if err == nil {
-		Debug = v
+		debug = v
 	}
 }
 
 // Trace outputs log if debug is enabled
 func Trace(format string, args ...interface{}) {
-	if !Debug {
+	if !debug {
 		return
 	}
-	Logger.Printf(format, args...)
+	logger.Printf(format, args...)
 }
 
 // Mark marks the begin/end of a function, and also indents the log output
 // accordingly
 func Mark(format string, args ...interface{}) func() {
-	if !Debug {
+	if !debug {
 		return func() {}
 	}
 
 	Trace("START "+format, args...)
-	old := Logger.Prefix()
-	Logger.SetPrefix(old + "|    ")
+	old := logger.Prefix()
+	logger.SetPrefix(old + "|    ")
 	return func() {
-		Logger.SetPrefix(old)
+		logger.SetPrefix(old)
 		Trace("END "+format, args...)
 	}
 }

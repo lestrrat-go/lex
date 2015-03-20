@@ -34,6 +34,7 @@ func NewReaderLexer(in io.Reader, fn LexFn) *ReaderLexer {
 	}
 }
 
+// Current returns current rune being considered
 func (l *ReaderLexer) Current() (r rune) {
 	if len(l.buf) == 0 {
 		return l.Next()
@@ -174,8 +175,10 @@ func (l *ReaderLexer) AcceptString(word string) bool {
 	return AcceptString(l, word, false)
 }
 
+// PeekString returns true if the given string can be matched exactly,
+// but does not move the position
 func (l *ReaderLexer) PeekString(word string) bool {
-	guard := Mark("PeekString")
+	guard := Mark(fmt.Sprintf("PeekString '%s'", word))
 	defer guard()
 	return AcceptString(l, word, true)
 }
@@ -198,6 +201,7 @@ func (l *ReaderLexer) AcceptRun(valid string) bool {
 // Emit creates and sends a new Item of type `t` through the output
 // channel. The Item is generated using `Grab`
 func (l *ReaderLexer) Emit(t ItemType) {
+	Trace("Emit %s", t)
 	l.items <- l.Grab(t)
 }
 
@@ -207,6 +211,7 @@ func (l *ReaderLexer) EmitErrorf(format string, args ...interface{}) LexFn {
 	return nil
 }
 
+// BufferString returns the current buffer
 func (l *ReaderLexer) BufferString() (str string) {
 	guard := Mark("BufferString")
 	defer func() {
@@ -288,11 +293,11 @@ func (l *ReaderLexer) NextItem() LexItem {
 // Run starts the lexing. You should be calling this method as a goroutine:
 //
 //    lexer := lex.NewStringLexer(...)
-//    go lexer.Run(lexer)
+//    go lexer.Run()
 //    for item := range lexer.Items() {
 //      ...
 //    }
 //
-func (l *ReaderLexer) Run(ctx Lexer) {
-	LexRun(l, ctx)
+func (l *ReaderLexer) Run() {
+	LexRun(l)
 }

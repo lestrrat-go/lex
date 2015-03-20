@@ -11,7 +11,18 @@ const (
 	ItemWhitespace
 )
 
-func lexStart(l Lexer, ctx interface{}) LexFn {
+func ExampleLexer() {
+	c := &testLexCtx{}
+	l := NewStringLexer("1 + 1", c.lexStart)
+	go l.Run()
+
+	for item := range l.Items() {
+		// Do your processing here
+	}
+}
+
+type testLexCtx struct {}
+func (tlc *testLexCtx) lexStart(l Lexer) LexFn {
 	guard := Mark("lexStart")
 	defer guard()
 
@@ -20,55 +31,56 @@ func lexStart(l Lexer, ctx interface{}) LexFn {
 	case b == EOF:
 		l.Emit(ItemEOF)
 	case b >= 0x31 && b <= 0x39:
-		return lexNumber
+		return tlc.lexNumber
 	case b == '+':
-		return lexOperator
+		return tlc.lexOperator
 	case b == ' ' || b == 0x13 || b == 0x09 || b == 0x0a:
-		return lexWhitespace
+		return tlc.lexWhitespace
 	default:
 		l.EmitErrorf("Unexpected char: %q", b)
 	}
 	return nil
 }
 
-func lexWhitespace(l Lexer, ctx interface{}) LexFn {
+func (tlc *testLexCtx) lexWhitespace(l Lexer) LexFn {
 	guard := Mark("lexWhitespace")
 	defer guard()
 	if l.AcceptString("\n") {
 		l.Emit(ItemWhitespace)
-		return lexStart
+		return tlc.lexStart
 	}
 	if l.AcceptRun(" \t\r") {
 		l.Emit(ItemWhitespace)
-		return lexStart
+		return tlc.lexStart
 	}
 	return l.EmitErrorf("Expected whitespace")
 }
 
-func lexOperator(l Lexer, ctx interface{}) LexFn {
+func (tlc *testLexCtx) lexOperator(l Lexer) LexFn {
 	guard := Mark("lexOperator")
 	defer guard()
 	if l.AcceptString("+") {
 		l.Emit(ItemOperator)
-		return lexStart
+		return tlc.lexStart
 	}
 
 	return l.EmitErrorf("Expected operator")
 }
 
-func lexNumber(l Lexer, ctx interface{}) LexFn {
+func (tlc *testLexCtx) lexNumber(l Lexer) LexFn {
 	guard := Mark("lexNumber")
 	defer guard()
 	if l.AcceptRun("0123456789") {
 		l.Emit(ItemNumber)
-		return lexStart
+		return tlc.lexStart
 	}
 	return l.EmitErrorf("Expected number")
 }
 
 func TestStringLexer(t *testing.T) {
-	l := NewStringLexer("1 +\n 2", lexStart)
-	go l.Run(l)
+	tlc := &testLexCtx{}
+	l := NewStringLexer("1 +\n 2", tlc.lexStart)
+	go l.Run()
 
 	verify(t, l)
 }
@@ -103,8 +115,9 @@ func TestLexer_AcceptString(t *testing.T) {
 }
 
 func TestReaderLexer(t *testing.T) {
-	l := NewReaderLexer(bytes.NewBufferString("1 +\n 2"), lexStart)
-	go l.Run(l)
+	tlc := &testLexCtx{}
+	l := NewReaderLexer(bytes.NewBufferString("1 +\n 2"), tlc.lexStart)
+	go l.Run()
 
 	verify(t, l)
 }

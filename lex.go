@@ -16,15 +16,29 @@ import (
 	"unicode/utf8"
 )
 
-// LexFn defines the lexing function.
-type LexFn func(Lexer, interface{}) LexFn
+// LexFn defines the lexing function. It takes the lexer (i.e. StringLexer
+// or ReaderLexer) as its argument. If you have no state, you can just
+// use a regular functions. Otherwise, use an object and a method bound
+// to that object:
+// 
+//     type Foo strcut { ... }
+//     func (f *Foo) lexFoo(l lex.Lexer) lex.LexFn {
+//       ...
+//     }
+//     
+//     src := "...."
+//     f := &Foo{}
+//     l := lex.NewStringReader(src, f.lexFoo)
+//     l.Run()
+//     
+type LexFn func(Lexer) LexFn
 
 // EOF is used to signal that we have reached EOF
 const EOF = -1
 
 // Lexer defines the interface for Lexers
 type Lexer interface {
-	Run(Lexer)
+	Run()
 	GetEntryPoint() LexFn
 	Current() rune
 	Next() rune
@@ -44,9 +58,9 @@ type Lexer interface {
 // LexRun starts lexing using Lexer l, and a context Lexer ctx. "Context" in
 // this case can be thought as the concret lexer, and l is the parent class.
 // This is a utility function to be called from concrete Lexer types
-func LexRun(l, ctx Lexer) {
-	for fn := ctx.GetEntryPoint(); fn != nil; {
-		fn = fn(l, ctx)
+func LexRun(l Lexer) {
+	for fn := l.GetEntryPoint(); fn != nil; {
+		fn = fn(l)
 	}
 	close(l.Items())
 }
