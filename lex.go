@@ -45,6 +45,7 @@ type Lexer interface {
 	Peek() rune
 	Backup()
 	PeekString(string) bool
+	AcceptAny(string) bool
 	AcceptString(string) bool
 	AcceptRun(string) bool
 	AcceptRunFunc(func(r rune) bool) bool
