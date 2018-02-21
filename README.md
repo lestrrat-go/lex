@@ -1,9 +1,11 @@
-go-lex
+lex
 ======
 
-[![Build Status](https://travis-ci.org/lestrrat/go-lex.svg?branch=master)](https://travis-ci.org/lestrrat/go-lex)
-
 This is a simple lexer, based loosely on `text/template`'s lexer.
+
+[![Build Status](https://travis-ci.org/lestrrat-go/lex.svg?branch=master)](https://travis-ci.org/lestrrat-go/lex)
+[![GoDoc](http://godoc.org/github.com/lestrrat-go/lex?status.png)](http://godoc.org/github.com/lestrrat-go/lex)
+
 
 ## HOW TO USE
 
